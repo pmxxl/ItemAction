@@ -1,0 +1,20 @@
+name: ItemAction
+version: '1.0-SNAPSHOT'
+main: com.horizonkk.itemAction.ItemAction
+api-version: '1.21'
+prefix: 物品动作
+authors: [ HorizonKK ]
+description: 物品动作
+depend:
+  - PlaceholderAPI
+  - NeigeItems
+
+commands:
+  ItemAction:
+    description: ItemAction 主命令
+    usage: /<command> [reload|help|info]
+    aliases: [itemaction]
+permissions:
+  itemaction.reload:
+    description: 允许重载配置文件
+    default: op

@@ -1,0 +1,29 @@
+# ItemAction 主配置文件
+
+# 调试模式
+debug: false
+
+# 消息设置
+messages:
+  # 前缀
+  prefix: "&7[&f物品动作&7]"
+  # 无权限消息
+  no_permission: "&c你没有权限执行此操作!"
+  # 玩家专用命令提示
+  player_only: "&c此命令只能由玩家执行!"
+
+# 功能设置
+features:
+  # 是否启用手持物品检测
+  hand_check_enabled: true
+  # 检测间隔(tick)
+  check_interval: 20
+  # 是否显示动作提示
+  show_action_hint: true
+
+# 日志设置
+logging:
+  # 是否记录命令使用
+  log_commands: true
+  # 是否记录配置重载
+  log_reloads: true
