@@ -1,8 +1,10 @@
 package com.horizonkk.itemAction.hook;
 
 import com.horizonkk.itemAction.ItemAction;
+import com.horizonkk.itemAction.event.RightKeyAction;
 import com.horizonkk.itemAction.manager.ActionManager;
 import com.horizonkk.itemAction.event.FkeyAction;
+import com.horizonkk.itemAction.manager.ChargeManager;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -11,18 +13,22 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class PlaceholderAPI extends PlaceholderExpansion {
-
     private final ItemAction plugin;
     private final ActionManager actionManager;
     private final FkeyAction fkeyAction;
+    private final RightKeyAction rightKeyAction;
+    private final ChargeManager chargeManager; // 新增共享读条管理器
 
     public PlaceholderAPI(ItemAction plugin) {
         this.plugin = plugin;
         this.actionManager = plugin.getActionManager();
         this.fkeyAction = plugin.getFkeyAction();
+        this.rightKeyAction = plugin.getRightKeyAction();
+        this.chargeManager = plugin.getChargeManager(); // 获取共享读条管理器
     }
 
     @Override
@@ -84,7 +90,7 @@ public class PlaceholderAPI extends PlaceholderExpansion {
             return handleNoItemPlaceholders(params);
         }
 
-        // 处理读条相关变量
+        // 处理读条相关变量（使用共享管理器）
         UUID playerId = player.getUniqueId();
         switch (params.toLowerCase()) {
             // 基础物品信息
@@ -97,26 +103,55 @@ public class PlaceholderAPI extends PlaceholderExpansion {
             case "hand_item_display_name":
                 return actionManager.getItemDisplayName(itemInHand);
 
-            // 读条进度变量
+            // 新增：返回配置中的text文字信息
+            case "text":
+                Map<String, Object> itemConfig = actionManager.getItemConfig(itemId);
+                if (itemConfig != null) {
+                    // 检查是否有权限配置
+                    if (itemConfig.containsKey("permission") && itemConfig.containsKey("permission-text")) {
+                        String permission = (String) itemConfig.get("permission");
+                        String permissionText = (String) itemConfig.get("permission-text");
+
+                        // 如果玩家拥有该权限，返回permission-text
+                        if (player.hasPermission(permission)) {
+                            return permissionText;
+                        }
+                    }
+                    // 如果没有权限配置或玩家没有权限，返回普通的text
+                    if (itemConfig.containsKey("text")) {
+                        Object textObj = itemConfig.get("text");
+                        if (textObj instanceof String) {
+                            return (String) textObj;
+                        }
+                    }
+                }
+                return ""; // 如果没有配置text或不是字符串，则返回空字符串
+
+            // 读条进度变量（使用共享管理器）
             case "charging_progress":
-                int progress = fkeyAction.getChargeProgressPercent(playerId);
+                int progress = chargeManager.getChargeProgressPercent(playerId);
                 return progress >= 0 ? String.valueOf(progress) : "";
 
             case "charging_progress_percent":
-                int percent = fkeyAction.getChargeProgressPercent(playerId);
+                int percent = chargeManager.getChargeProgressPercent(playerId);
                 return percent >= 0 ? percent + "%" : "";
 
             case "is_charging":
-                return String.valueOf(fkeyAction.isPlayerCharging(playerId));
+                return String.valueOf(chargeManager.isPlayerCharging(playerId));
 
-            // 读条满进度变量
+            // 读条满进度变量（使用共享管理器）
             case "charging_complete":
-                int completeProgress = fkeyAction.getChargeProgressPercent(playerId);
+                int completeProgress = chargeManager.getChargeProgressPercent(playerId);
                 return String.valueOf(completeProgress >= 100);
 
             case "is_charging_complete":
-                int completionProgress = fkeyAction.getChargeProgressPercent(playerId);
-                return String.valueOf(completionProgress >= 100 && fkeyAction.isPlayerCharging(playerId));
+                int completionProgress = chargeManager.getChargeProgressPercent(playerId);
+                return String.valueOf(completionProgress >= 100 && chargeManager.isPlayerCharging(playerId));
+
+            // 新增：读条类型变量
+            case "charging_type":
+                String chargeType = chargeManager.getChargeType(playerId);
+                return chargeType != null ? chargeType : "";
 
             // 新增：默认返回100的变量
             case "default_max_progress":
@@ -182,6 +217,10 @@ public class PlaceholderAPI extends PlaceholderExpansion {
             case "hand_item_display_name":
                 return "";
 
+            // 新增：没有物品时text变量的处理
+            case "text":
+                return "";
+
             case "charging_progress":
             case "charging_progress_percent":
                 return "";
@@ -220,6 +259,22 @@ public class PlaceholderAPI extends PlaceholderExpansion {
                 }
                 return null;
         }
+    }
+
+    /**
+     * 获取物品配置中的text文本
+     * @param itemId 物品ID
+     * @return 配置的text文本，如果不存在则返回空字符串
+     */
+    private String getItemText(String itemId) {
+        Map<String, Object> itemConfig = actionManager.getItemConfig(itemId);
+        if (itemConfig != null && itemConfig.containsKey("text")) {
+            Object textObj = itemConfig.get("text");
+            if (textObj instanceof String) {
+                return (String) textObj;
+            }
+        }
+        return "";
     }
 
     private String formatActionList(List<String> actions, String format) {
