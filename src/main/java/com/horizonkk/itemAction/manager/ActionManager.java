@@ -106,6 +106,17 @@ public class ActionManager {
         return isConfigured;
     }
 
+    /**
+     * 获取物品使用完成后的消息，没有配置则返回null
+     */
+    public String getActionMessage(String itemId) {
+        Map<String, Object> config = getItemConfig(itemId);
+        if (config != null && config.containsKey("message")) {
+            return (String) config.get("message");
+        }
+        return null;
+    }
+
     // 重新加载配置文件
     public void reloadConfig() {
         loadActionConfig();

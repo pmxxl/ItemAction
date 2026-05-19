@@ -111,6 +111,8 @@ public class RightKeyAction implements Listener {
             executeConfiguredCommands(player, itemConfig);
             // 处理物品扣除
             handleItemDeduction(player, itemInHand, itemConfig);
+            // 发送完成消息
+            sendCompletionMessage(player, itemId, itemInHand);
         }
 
         // 这里可以添加其他的右键动作逻辑
@@ -209,6 +211,20 @@ public class RightKeyAction implements Listener {
                 }
             }
             // 如果amount为其他数值，可以在这里扩展处理
+        }
+    }
+
+    /**
+     * 发送使用完成后的消息
+     */
+    private void sendCompletionMessage(Player player, String itemId, ItemStack item) {
+        String message = actionManager.getActionMessage(itemId);
+        if (message != null && !message.isEmpty()) {
+            String itemName = actionManager.getItemDisplayName(item);
+            String processed = ChatColor.translateAlternateColorCodes('&', message)
+                    .replace("%player%", player.getName())
+                    .replace("{name}", itemName);
+            player.sendMessage(processed);
         }
     }
 
