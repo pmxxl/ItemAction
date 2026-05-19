@@ -34,8 +34,6 @@ public class ItemActionCommand implements CommandExecutor, TabCompleter {
         switch (args[0].toLowerCase()) {
             case "reload":
                 return handleReloadCommand(sender);
-            case "reloadrecipes":
-                return handleReloadRecipesCommand(sender);
             case "help":
                 sendHelpMessage(sender);
                 return true;
@@ -71,19 +69,10 @@ public class ItemActionCommand implements CommandExecutor, TabCompleter {
             // 重载主配置文件
             plugin.reloadConfig();
 
-            // 重载配方配置
-            boolean recipesReloaded = plugin.getCustomRecipe().reloadRecipes();
-
             // 发送成功消息
             sender.sendMessage(formatMessage("&a所有配置文件重载成功!"));
             sender.sendMessage(formatMessage("&7- Action.yml 已重载"));
             sender.sendMessage(formatMessage("&7- config.yml 已重载"));
-            sender.sendMessage(formatMessage("&7- Recipe.yml 已重载"));
-
-            // 如果配方重载失败，给出警告
-            if (!recipesReloaded) {
-                sender.sendMessage(formatMessage("&c注意: Recipe.yml 重载时出现问题"));
-            }
 
             // 如果是玩家，发送ActionBar提示
             if (sender instanceof Player) {
@@ -104,53 +93,11 @@ public class ItemActionCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
-     * 处理配方重载命令 - 仅重载配方配置
-     */
-    private boolean handleReloadRecipesCommand(CommandSender sender) {
-        // 权限检查
-        if (!sender.hasPermission("itemaction.reload")) {
-            sender.sendMessage(formatMessage("&c你没有权限执行此命令!"));
-            return false;
-        }
-
-        try {
-            sender.sendMessage(formatMessage("&e正在重载配方配置..."));
-
-            // 重载配方配置
-            boolean success = plugin.getCustomRecipe().reloadRecipes();
-
-            if (success) {
-                sender.sendMessage(formatMessage("&a配方配置重载成功!"));
-                sender.sendMessage(formatMessage("&7- Recipe.yml 已重载"));
-
-                // 如果是玩家，发送ActionBar提示
-                if (sender instanceof Player) {
-                    Player player = (Player) sender;
-                    player.sendMessage(formatMessage("&a配方重载完成!"));
-                }
-
-                plugin.getLogger().info(sender.getName() + " 执行了配方重载命令");
-            } else {
-                sender.sendMessage(formatMessage("&c配方配置重载失败!"));
-            }
-
-            return success;
-
-        } catch (Exception e) {
-            sender.sendMessage(formatMessage("&c重载配方配置时发生错误: " + e.getMessage()));
-            plugin.getLogger().severe("重载配方配置失败: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    /**
      * 发送帮助信息
      */
     private void sendHelpMessage(CommandSender sender) {
         sender.sendMessage(formatMessage("&6==== &eItemAction 命令帮助 &6===="));
-        sender.sendMessage(formatMessage("&e/ItemAction reload &7- 重载所有配置文件 (Action.yml, config.yml, Recipe.yml)"));
-        sender.sendMessage(formatMessage("&e/ItemAction reloadrecipes &7- 仅重载配方配置 (Recipe.yml)"));
+        sender.sendMessage(formatMessage("&e/ItemAction reload &7- 重载所有配置文件 (Action.yml, config.yml)"));
         sender.sendMessage(formatMessage("&e/ItemAction help &7- 显示此帮助信息"));
         sender.sendMessage(formatMessage("&e/ItemAction info &7- 显示插件信息"));
         sender.sendMessage(formatMessage("&e/ItemAction version &7- 显示版本信息"));
@@ -200,7 +147,6 @@ public class ItemActionCommand implements CommandExecutor, TabCompleter {
             // 只有有权限的用户才能看到reload相关命令
             if (sender.hasPermission("itemaction.reload")) {
                 completions.add("reload");
-                completions.add("reloadrecipes");
             }
 
             // 过滤匹配用户输入的部分

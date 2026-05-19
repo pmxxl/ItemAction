@@ -16,8 +16,6 @@ public final class ItemAction extends JavaPlugin {
     private ChargeManager chargeManager; // 新增共享读条管理器
     private FkeyAction fkeyAction;
     private RightKeyAction rightKeyAction; // 新增
-    private CustomRecipe customRecipe;
-
     @Override
     public void onEnable() {
         // Plugin startup logic
@@ -42,12 +40,10 @@ public final class ItemAction extends JavaPlugin {
         // 注册事件监听器
         fkeyAction = new FkeyAction(this);
         rightKeyAction = new RightKeyAction(this);
-//        customRecipe = new CustomRecipe(this); 注释自定义合成配方
         getServer().getPluginManager().registerEvents(fkeyAction, this);
         getServer().getPluginManager().registerEvents(rightKeyAction, this);
         getServer().getPluginManager().registerEvents(new HandTick(this), this);
         getServer().getPluginManager().registerEvents(new CancelEvent(this), this);
-//        getServer().getPluginManager().registerEvents(customRecipe, this); 注释自定义合成配方
     }
 
     private void registerPlaceholderAPI() {
@@ -80,10 +76,6 @@ public final class ItemAction extends JavaPlugin {
 
     public ItemActionCommand getCommandHandler() {
         return commandHandler;
-    }
-
-    public CustomRecipe getCustomRecipe() {
-        return customRecipe;
     }
 
     public FkeyAction getFkeyAction() {
