@@ -1,8 +1,8 @@
 package com.horizonkk.itemAction.event;
 
 import com.horizonkk.itemAction.ItemAction;
+import com.horizonkk.itemAction.api.ChargeAPI;
 import com.horizonkk.itemAction.manager.ActionManager;
-import com.horizonkk.itemAction.manager.ChargeManager;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -24,7 +24,7 @@ import java.util.UUID;
 public class FkeyAction implements Listener {
     private final ItemAction plugin;
     private final ActionManager actionManager;
-    private final ChargeManager chargeManager; // 新增共享读条管理器
+    private final ChargeAPI chargeManager; // 新增共享读条管理器
 
     public FkeyAction(ItemAction plugin) {
         this.plugin = plugin;

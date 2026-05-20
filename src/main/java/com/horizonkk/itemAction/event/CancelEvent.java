@@ -1,7 +1,7 @@
 package com.horizonkk.itemAction.event;
 
 import com.horizonkk.itemAction.ItemAction;
-import com.horizonkk.itemAction.manager.ChargeManager;
+import com.horizonkk.itemAction.api.ChargeAPI;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,7 +17,7 @@ import java.util.UUID;
 
 public class CancelEvent implements Listener {
     private final ItemAction plugin;
-    private final ChargeManager chargeManager; // 新增共享读条管理器
+    private final ChargeAPI chargeManager; // 新增共享读条管理器
 
     public CancelEvent(ItemAction plugin) {
         this.plugin = plugin;

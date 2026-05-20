@@ -1,5 +1,6 @@
 package com.horizonkk.itemAction;
 
+import com.horizonkk.itemAction.api.ChargeAPI;
 import com.horizonkk.itemAction.command.ItemActionCommand;
 import com.horizonkk.itemAction.event.*;
 import com.horizonkk.itemAction.hook.PlaceholderAPI;
@@ -13,7 +14,7 @@ public final class ItemAction extends JavaPlugin {
     private ActionManager actionManager;
     private PlaceholderAPI placeholderAPI;
     private ItemActionCommand commandHandler;
-    private ChargeManager chargeManager; // 新增共享读条管理器
+    private ChargeAPI chargeManager; // 新增共享读条管理器
     private FkeyAction fkeyAction;
     private RightKeyAction rightKeyAction; // 新增
     @Override
@@ -84,7 +85,7 @@ public final class ItemAction extends JavaPlugin {
     public RightKeyAction getRightKeyAction() { // 新增getter方法
         return rightKeyAction;
     }
-    public ChargeManager getChargeManager() { // 新增getter方法
+    public ChargeAPI getChargeManager() { // 新增getter方法
         return chargeManager;
     }
 }

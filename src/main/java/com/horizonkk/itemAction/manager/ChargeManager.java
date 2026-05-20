@@ -1,6 +1,7 @@
 package com.horizonkk.itemAction.manager;
 
 import com.horizonkk.itemAction.ItemAction;
+import com.horizonkk.itemAction.api.ChargeAPI;
 import com.horizonkk.itemAction.event.FkeyAction;
 import com.horizonkk.itemAction.event.RightKeyAction;
 import org.bukkit.ChatColor;
@@ -14,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class ChargeManager {
+public class ChargeManager implements ChargeAPI {
     private final ItemAction plugin;
     private final ActionManager actionManager;
 

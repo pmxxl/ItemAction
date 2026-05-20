@@ -1,10 +1,10 @@
 package com.horizonkk.itemAction.hook;
 
 import com.horizonkk.itemAction.ItemAction;
+import com.horizonkk.itemAction.api.ChargeAPI;
 import com.horizonkk.itemAction.event.RightKeyAction;
 import com.horizonkk.itemAction.manager.ActionManager;
 import com.horizonkk.itemAction.event.FkeyAction;
-import com.horizonkk.itemAction.manager.ChargeManager;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -21,7 +21,7 @@ public class PlaceholderAPI extends PlaceholderExpansion {
     private final ActionManager actionManager;
     private final FkeyAction fkeyAction;
     private final RightKeyAction rightKeyAction;
-    private final ChargeManager chargeManager; // 新增共享读条管理器
+    private final ChargeAPI chargeManager; // 新增共享读条管理器
 
     public PlaceholderAPI(ItemAction plugin) {
         this.plugin = plugin;
