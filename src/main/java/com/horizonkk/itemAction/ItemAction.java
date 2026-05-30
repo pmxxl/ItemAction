@@ -1,11 +1,13 @@
 package com.horizonkk.itemAction;
 
 import com.horizonkk.itemAction.api.ChargeAPI;
+import com.horizonkk.itemAction.api.SpellChargeAPI;
 import com.horizonkk.itemAction.command.ItemActionCommand;
 import com.horizonkk.itemAction.event.*;
 import com.horizonkk.itemAction.hook.PlaceholderAPI;
 import com.horizonkk.itemAction.manager.ActionManager;
 import com.horizonkk.itemAction.manager.ChargeManager;
+import com.horizonkk.itemAction.manager.SpellChargeManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
@@ -15,6 +17,7 @@ public final class ItemAction extends JavaPlugin {
     private PlaceholderAPI placeholderAPI;
     private ItemActionCommand commandHandler;
     private ChargeAPI chargeManager; // 新增共享读条管理器
+    private SpellChargeAPI spellChargeManager; // 法术读条管理器
     private FkeyAction fkeyAction;
     private RightKeyAction rightKeyAction; // 新增
     @Override
@@ -22,6 +25,7 @@ public final class ItemAction extends JavaPlugin {
         // Plugin startup logic
         actionManager = new ActionManager(this);
         chargeManager = new ChargeManager(this); // 初始化共享读条管理器
+        spellChargeManager = new SpellChargeManager(this); // 初始化法术读条管理器
         // 初始化ActionManager
         // 注册PlaceholderAPI
         // 注册事件
@@ -87,5 +91,8 @@ public final class ItemAction extends JavaPlugin {
     }
     public ChargeAPI getChargeManager() { // 新增getter方法
         return chargeManager;
+    }
+    public SpellChargeAPI getSpellChargeManager() {
+        return spellChargeManager;
     }
 }

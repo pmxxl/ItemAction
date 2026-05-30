@@ -2,6 +2,7 @@ package com.horizonkk.itemAction.hook;
 
 import com.horizonkk.itemAction.ItemAction;
 import com.horizonkk.itemAction.api.ChargeAPI;
+import com.horizonkk.itemAction.api.SpellChargeAPI;
 import com.horizonkk.itemAction.event.RightKeyAction;
 import com.horizonkk.itemAction.manager.ActionManager;
 import com.horizonkk.itemAction.event.FkeyAction;
@@ -22,6 +23,7 @@ public class PlaceholderAPI extends PlaceholderExpansion {
     private final FkeyAction fkeyAction;
     private final RightKeyAction rightKeyAction;
     private final ChargeAPI chargeManager; // 新增共享读条管理器
+    private final SpellChargeAPI spellChargeManager; // 法术读条管理器
 
     public PlaceholderAPI(ItemAction plugin) {
         this.plugin = plugin;
@@ -29,6 +31,7 @@ public class PlaceholderAPI extends PlaceholderExpansion {
         this.fkeyAction = plugin.getFkeyAction();
         this.rightKeyAction = plugin.getRightKeyAction();
         this.chargeManager = plugin.getChargeManager(); // 获取共享读条管理器
+        this.spellChargeManager = plugin.getSpellChargeManager(); // 获取法术读条管理器
     }
 
     @Override
@@ -80,6 +83,14 @@ public class PlaceholderAPI extends PlaceholderExpansion {
     }
 
     private String processPlaceholder(Player player, String params) {
+        UUID playerId = player.getUniqueId();
+
+        // 优先处理读条相关变量（不依赖手持物品，且合并两边管理器）
+        String chargeResult = processChargePlaceholders(playerId, params);
+        if (chargeResult != null) {
+            return chargeResult;
+        }
+
         ItemStack itemInHand = player.getInventory().getItemInMainHand();
         if (itemInHand == null) {
             return handleNoItemPlaceholders(params);
@@ -90,8 +101,6 @@ public class PlaceholderAPI extends PlaceholderExpansion {
             return handleNoItemPlaceholders(params);
         }
 
-        // 处理读条相关变量（使用共享管理器）
-        UUID playerId = player.getUniqueId();
         switch (params.toLowerCase()) {
             // 基础物品信息
             case "hand_item_id":
@@ -126,42 +135,6 @@ public class PlaceholderAPI extends PlaceholderExpansion {
                     }
                 }
                 return ""; // 如果没有配置text或不是字符串，则返回空字符串
-
-            // 读条进度变量（使用共享管理器）
-            case "charging_progress":
-                int progress = chargeManager.getChargeProgressPercent(playerId);
-                return progress >= 0 ? String.valueOf(progress) : "";
-
-            case "charging_progress_percent":
-                int percent = chargeManager.getChargeProgressPercent(playerId);
-                return percent >= 0 ? percent + "%" : "";
-
-            case "is_charging":
-                return String.valueOf(chargeManager.isPlayerCharging(playerId));
-
-            // 读条满进度变量（使用共享管理器）
-            case "charging_complete":
-                int completeProgress = chargeManager.getChargeProgressPercent(playerId);
-                return String.valueOf(completeProgress >= 100);
-
-            case "is_charging_complete":
-                int completionProgress = chargeManager.getChargeProgressPercent(playerId);
-                return String.valueOf(completionProgress >= 100 && chargeManager.isPlayerCharging(playerId));
-
-            // 新增：读条类型变量
-            case "charging_type":
-                String chargeType = chargeManager.getChargeType(playerId);
-                return chargeType != null ? chargeType : "";
-
-            // 新增：默认返回100的变量
-            case "default_max_progress":
-                return "100";
-
-            case "max_charge_value":
-                return "100";
-
-            case "full_progress":
-                return "100";
 
             // 动作检测变量 (返回 true/false)
             case "can_use_f":
@@ -206,6 +179,81 @@ public class PlaceholderAPI extends PlaceholderExpansion {
         }
     }
 
+    /**
+     * 处理读条相关占位符，合并 ChargeAPI 和 SpellChargeAPI 两边状态
+     * @return 占位符值，不匹配时返回null
+     */
+    private String processChargePlaceholders(UUID playerId, String params) {
+        boolean isCharging = chargeManager.isPlayerCharging(playerId);
+        boolean isSpellCharging = spellChargeManager.isPlayerCharging(playerId);
+        boolean anyCharging = isCharging || isSpellCharging;
+
+        // 获取进度：法术优先
+        int progress = -1;
+        if (isSpellCharging) {
+            progress = spellChargeManager.getChargeProgressPercent(playerId);
+        } else if (isCharging) {
+            progress = chargeManager.getChargeProgressPercent(playerId);
+        }
+
+        switch (params.toLowerCase()) {
+            case "is_charging":
+                return String.valueOf(anyCharging);
+
+            case "charging_progress":
+                return progress >= 0 ? String.valueOf(progress) : "";
+
+            case "charging_progress_percent":
+                return progress >= 0 ? progress + "%" : "";
+
+            case "charging_complete":
+                return String.valueOf(progress >= 100);
+
+            case "is_charging_complete":
+                return String.valueOf(progress >= 100 && anyCharging);
+
+            case "charging_type":
+                if (isSpellCharging) {
+                    String spellId = spellChargeManager.getCurrentSpellId(playerId);
+                    return spellId != null ? spellId : "";
+                }
+                if (isCharging) {
+                    String chargeType = chargeManager.getChargeType(playerId);
+                    return chargeType != null ? chargeType : "";
+                }
+                return "";
+
+            case "default_max_progress":
+            case "max_charge_value":
+            case "full_progress":
+                return "100";
+
+            // 法术读条独立变量（保留用于精确查询）
+            case "spell_charging_progress": {
+                int sp = spellChargeManager.getChargeProgressPercent(playerId);
+                return sp >= 0 ? String.valueOf(sp) : "";
+            }
+            case "spell_charging_progress_percent": {
+                int sp = spellChargeManager.getChargeProgressPercent(playerId);
+                return sp >= 0 ? sp + "%" : "";
+            }
+            case "spell_is_charging":
+                return String.valueOf(isSpellCharging);
+
+            case "spell_charging_complete": {
+                int sp = spellChargeManager.getChargeProgressPercent(playerId);
+                return String.valueOf(sp >= 100);
+            }
+            case "spell_current_id": {
+                String spellId = spellChargeManager.getCurrentSpellId(playerId);
+                return spellId != null ? spellId : "";
+            }
+
+            default:
+                return null;
+        }
+    }
+
     private String handleNoItemPlaceholders(String params) {
         switch (params.toLowerCase()) {
             case "hand_item_id":
@@ -220,21 +268,6 @@ public class PlaceholderAPI extends PlaceholderExpansion {
             // 新增：没有物品时text变量的处理
             case "text":
                 return "";
-
-            case "charging_progress":
-            case "charging_progress_percent":
-                return "";
-
-            case "is_charging":
-            case "charging_complete":
-            case "is_charging_complete":
-                return "false";
-
-            // 默认返回100的变量（即使没有物品也返回100）
-            case "default_max_progress":
-            case "max_charge_value":
-            case "full_progress":
-                return "100";
 
             case "can_use_f":
             case "can_use_left":
