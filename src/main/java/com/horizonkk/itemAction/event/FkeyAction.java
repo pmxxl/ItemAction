@@ -52,8 +52,18 @@ public class FkeyAction implements Listener {
             return;
         }
 
-        // 权限检查
+        // 权限检查 —— permission: 拥有该权限时阻止
         if (ActionManager.hasPermissionRestriction(config, player)) {
+            return;
+        }
+
+        // 无权限检查 —— nopermission: 没有该权限时阻止
+        if (ActionManager.hasNopermissionRestriction(config, player)) {
+            String nopermissionText = ActionManager.getNopermissionText(config);
+            if (nopermissionText != null && !nopermissionText.isEmpty()) {
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', nopermissionText
+                        .replace("%player%", player.getName())));
+            }
             return;
         }
 
@@ -80,7 +90,7 @@ public class FkeyAction implements Listener {
         if (itemConfig != null) {
             executeConfiguredCommands(player, itemConfig, itemId);
             handleItemDeduction(player, itemInHand, itemConfig);
-            sendCompletionMessage(player, itemId, itemInHand);
+            sendCompletionMessage(player, itemId, itemInHand, itemConfig);
         }
     }
 
@@ -154,7 +164,7 @@ public class FkeyAction implements Listener {
         }
     }
 
-    private void sendCompletionMessage(Player player, String itemId, ItemStack item) {
+    private void sendCompletionMessage(Player player, String itemId, ItemStack item, Map<String, Object> itemConfig) {
         String message = actionManager.getActionMessage(itemId);
         if (message != null && !message.isEmpty()) {
             String itemName = actionManager.getItemDisplayName(item);

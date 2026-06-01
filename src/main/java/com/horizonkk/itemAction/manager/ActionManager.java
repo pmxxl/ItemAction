@@ -271,6 +271,7 @@ public class ActionManager {
 
     /**
      * 【高效】从已解析的配置Map中检查玩家权限限制
+     * 如果配置了permission且玩家拥有该权限，返回true表示应阻止执行
      *
      * @param config 已解析的有效配置Map
      * @param player 玩家
@@ -282,6 +283,38 @@ public class ActionManager {
             return player.hasPermission(permission);
         }
         return false;
+    }
+
+    /**
+     * 【高效】从已解析的配置Map中检查玩家无权限限制
+     * 如果配置了nopermission且玩家没有该权限，返回true表示应阻止执行
+     *
+     * @param config 已解析的有效配置Map
+     * @param player 玩家
+     * @return 玩家缺少所需权限则返回true
+     */
+    public static boolean hasNopermissionRestriction(Map<String, Object> config, Player player) {
+        if (config != null && config.containsKey("nopermission")) {
+            String permission = (String) config.get("nopermission");
+            return !player.hasPermission(permission);
+        }
+        return false;
+    }
+
+    /**
+     * 【高效】从已解析的配置Map中获取nopermission-text
+     *
+     * @param config 已解析的有效配置Map
+     * @return nopermission-text内容，未配置返回null
+     */
+    public static String getNopermissionText(Map<String, Object> config) {
+        if (config != null && config.containsKey("nopermission-text")) {
+            Object text = config.get("nopermission-text");
+            if (text instanceof String) {
+                return (String) text;
+            }
+        }
+        return null;
     }
 
     // 重新加载配置文件

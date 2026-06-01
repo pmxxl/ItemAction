@@ -130,17 +130,24 @@ public class PlaceholderAPI extends PlaceholderExpansion {
             // 新增：返回配置中的text文字信息
             case "text":
                 if (effectiveConfig != null) {
-                    // 检查是否有权限配置
+                    // 检查permission: 如果玩家拥有该权限，返回permission-text
                     if (effectiveConfig.containsKey("permission") && effectiveConfig.containsKey("permission-text")) {
                         String permission = (String) effectiveConfig.get("permission");
-                        String permissionText = (String) effectiveConfig.get("permission-text");
-
-                        // 如果玩家拥有该权限，返回permission-text
                         if (player.hasPermission(permission)) {
-                            return permissionText;
+                            return (String) effectiveConfig.get("permission-text");
                         }
                     }
-                    // 如果没有权限配置或玩家没有权限，返回普通的text
+                    // 检查nopermission: 如果玩家没有该权限，返回nopermission-text
+                    if (effectiveConfig.containsKey("nopermission") && effectiveConfig.containsKey("nopermission-text")) {
+                        String nopermission = (String) effectiveConfig.get("nopermission");
+                        if (!player.hasPermission(nopermission)) {
+                            Object nopermissionObj = effectiveConfig.get("nopermission-text");
+                            if (nopermissionObj instanceof String) {
+                                return (String) nopermissionObj;
+                            }
+                        }
+                    }
+                    // 否则返回普通的text
                     if (effectiveConfig.containsKey("text")) {
                         Object textObj = effectiveConfig.get("text");
                         if (textObj instanceof String) {
