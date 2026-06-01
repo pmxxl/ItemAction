@@ -15,11 +15,26 @@ public class ActionManager {
     private final ItemAction plugin;
     private YamlConfiguration actionConfig;
     private Map<String, Map<String, Object>> itemCache;
+    private GroupManager groupManager;
 
     public ActionManager(ItemAction plugin) {
         this.plugin = plugin;
         this.itemCache = new HashMap<>();
         loadActionConfig();
+    }
+
+    /**
+     * 设置GroupManager引用（由ItemAction在初始化后注入）
+     */
+    public void setGroupManager(GroupManager groupManager) {
+        this.groupManager = groupManager;
+    }
+
+    /**
+     * 获取GroupManager
+     */
+    public GroupManager getGroupManager() {
+        return groupManager;
     }
 
     private void loadActionConfig() {
@@ -117,9 +132,84 @@ public class ActionManager {
         return null;
     }
 
+    /**
+     * 获取物品的有效配置（优先Action.yml，其次group.yml）
+     * 如果是通过group匹配的，会自动将%itemid%替换为实际的物品NI ID
+     *
+     * @param item 物品堆
+     * @return 有效配置Map，如果都没有匹配则返回null
+     */
+    public Map<String, Object> getEffectiveConfig(ItemStack item) {
+        if (item == null) return null;
+
+        String itemId = getItemIdFromItem(item);
+
+        // 优先检查Action.yml中的直接配置
+        Map<String, Object> directConfig = getItemConfig(itemId);
+        if (directConfig != null) {
+            return directConfig;
+        }
+
+        // 其次检查group.yml中的组匹配
+        if (groupManager != null) {
+            GroupManager.GroupEntry matchedGroup = groupManager.getMatchingGroup(item);
+            if (matchedGroup != null) {
+                return groupManager.resolveTemplate(matchedGroup, itemId);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 检查物品是否可以执行指定动作（同时检查Action.yml和group.yml）
+     *
+     * @param item   物品堆
+     * @param action 动作类型 (F, LEFT, RIGHT, SHIFT)
+     * @return 是否可以执行
+     */
+    public boolean canPerformAction(ItemStack item, String action) {
+        // 首先检查直接配置
+        String itemId = getItemIdFromItem(item);
+        if (canPerformAction(itemId, action)) {
+            return true;
+        }
+
+        // 然后检查组匹配
+        if (groupManager != null) {
+            GroupManager.GroupEntry matchedGroup = groupManager.getMatchingGroup(item);
+            if (matchedGroup != null) {
+                Map<String, Object> template = groupManager.resolveTemplate(matchedGroup, itemId);
+                Object actionObj = template.get("action");
+                if (actionObj instanceof List) {
+                    for (Object a : (List<?>) actionObj) {
+                        if (a instanceof String && ((String) a).equalsIgnoreCase(action)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 检查物品是否有任何有效配置（Action.yml或group.yml）
+     *
+     * @param item 物品堆
+     * @return 是否有配置
+     */
+    public boolean hasConfigForItem(ItemStack item) {
+        return getEffectiveConfig(item) != null;
+    }
+
     // 重新加载配置文件
     public void reloadConfig() {
         loadActionConfig();
+        if (groupManager != null) {
+            groupManager.reloadConfig();
+        }
         plugin.getLogger().info("物品动作配置已重新加载");
     }
 }

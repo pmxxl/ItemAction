@@ -51,8 +51,8 @@ public class ChargeManager implements ChargeAPI {
             cancelCharging(playerId);
         }
 
-        // 获取move配置
-        boolean moveAllowed = isMoveAllowed(itemId);
+        // 获取move配置（支持Action.yml和group.yml）
+        boolean moveAllowed = isMoveAllowed(player);
 
         // 设置目标时间和初始进度
         chargeTargets.put(playerId, targetTime);
@@ -228,8 +228,9 @@ public class ChargeManager implements ChargeAPI {
         return allowed != null ? allowed : true;
     }
 
-    private boolean isMoveAllowed(String itemId) {
-        Map<String, Object> config = actionManager.getItemConfig(itemId);
+    private boolean isMoveAllowed(Player player) {
+        ItemStack item = player.getInventory().getItemInMainHand();
+        Map<String, Object> config = actionManager.getEffectiveConfig(item);
         if (config != null && config.containsKey("move")) {
             Object moveObj = config.get("move");
             if (moveObj instanceof Boolean) {

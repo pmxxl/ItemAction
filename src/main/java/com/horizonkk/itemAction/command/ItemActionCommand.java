@@ -63,7 +63,7 @@ public class ItemActionCommand implements CommandExecutor, TabCompleter {
         try {
             sender.sendMessage(formatMessage("&e正在重载所有配置文件..."));
 
-            // 重载Action配置
+            // 重载Action配置（内部会同时重载group.yml）
             actionManager.reloadConfig();
 
             // 重载主配置文件
@@ -72,6 +72,7 @@ public class ItemActionCommand implements CommandExecutor, TabCompleter {
             // 发送成功消息
             sender.sendMessage(formatMessage("&a所有配置文件重载成功!"));
             sender.sendMessage(formatMessage("&7- Action.yml 已重载"));
+            sender.sendMessage(formatMessage("&7- group.yml 已重载"));
             sender.sendMessage(formatMessage("&7- config.yml 已重载"));
 
             // 如果是玩家，发送ActionBar提示

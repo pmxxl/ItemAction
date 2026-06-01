@@ -10,6 +10,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.List;
+import java.util.Map;
 
 public class HandTick implements Listener {
     private final ItemAction plugin;
@@ -37,10 +38,11 @@ public class HandTick implements Listener {
         ItemStack itemInHand = player.getInventory().getItemInMainHand();
         if (itemInHand != null) {
             String itemId = actionManager.getItemIdFromItem(itemInHand);
-            // 检查配置文件中是否有此物品
-            if (actionManager.hasItemConfig(itemId)) {
-                List<String> actions = actionManager.getItemActions(itemId);
-                if (actions != null) {
+            // 检查配置文件中是否有此物品（Action.yml或group.yml）
+            if (actionManager.hasConfigForItem(itemInHand)) {
+                // 获取有效配置
+                Map<String, Object> effectiveConfig = actionManager.getEffectiveConfig(itemInHand);
+                if (effectiveConfig != null) {
                     // 保留变量功能，但不显示消息
                     // 变量功能通过PlaceholderAPI提供
                 }

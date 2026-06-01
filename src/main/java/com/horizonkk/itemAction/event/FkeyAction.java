@@ -48,23 +48,23 @@ public class FkeyAction implements Listener {
             // 获取物品ID
             String itemId = actionManager.getItemIdFromItem(mainHandItem);
 
-            // 检查物品是否有配置
-            boolean hasConfig = actionManager.hasItemConfig(itemId);
+            // 检查物品是否有配置（Action.yml或group.yml）
+            boolean hasConfig = actionManager.hasConfigForItem(mainHandItem);
 
             if (hasConfig) {
                 // 检查是否配置了F键动作
-                boolean canPerformF = actionManager.canPerformAction(itemId, "F");
+                boolean canPerformF = actionManager.canPerformAction(mainHandItem, "F");
 
                 if (canPerformF) {
-                    // 检查权限限制
-                    if (hasPermissionRestriction(itemId, player)) {
+                    // 检查权限限制（支持group的动态权限）
+                    if (hasPermissionRestriction(mainHandItem, player)) {
                         // 玩家拥有权限，无法使用该物品
                         // player.sendMessage(ChatColor.RED + "您已拥有该物品的权限，无法再次使用");
                         return;
                     }
 
                     // 获取读条时间配置
-                    int chargeTime = getChargeTime(itemId);
+                    int chargeTime = getChargeTime(mainHandItem);
                     // 检查是否正在读条
                     if (chargeManager.isPlayerCharging(playerId)) {
                         // 玩家正在读条中，提示正在读条
@@ -86,12 +86,12 @@ public class FkeyAction implements Listener {
 
     /**
      * 检查物品是否有权限限制
-     * @param itemId 物品ID
+     * @param item 物品堆
      * @param player 玩家
      * @return 如果玩家拥有权限则返回true，否则返回false
      */
-    private boolean hasPermissionRestriction(String itemId, Player player) {
-        Map<String, Object> itemConfig = actionManager.getItemConfig(itemId);
+    private boolean hasPermissionRestriction(ItemStack item, Player player) {
+        Map<String, Object> itemConfig = actionManager.getEffectiveConfig(item);
         if (itemConfig != null && itemConfig.containsKey("permission")) {
             String permission = (String) itemConfig.get("permission");
             return player.hasPermission(permission);
@@ -103,12 +103,12 @@ public class FkeyAction implements Listener {
      * 执行F键动作
      */
     public void executeFAction(Player player, String itemId, ItemStack itemInHand) {
-        // 获取物品配置
-        Map<String, Object> itemConfig = actionManager.getItemConfig(itemId);
+        // 获取物品的有效配置（优先Action.yml，其次group.yml）
+        Map<String, Object> itemConfig = actionManager.getEffectiveConfig(itemInHand);
 
         if (itemConfig != null) {
-            // 执行配置中的命令
-            executeConfiguredCommands(player, itemConfig);
+            // 执行配置中的命令（支持group的%itemid%占位符）
+            executeConfiguredCommands(player, itemConfig, itemId);
 
             // 处理物品扣除
             handleItemDeduction(player, itemInHand, itemConfig);
@@ -124,18 +124,34 @@ public class FkeyAction implements Listener {
      * 执行配置文件中的命令
      */
     private void executeConfiguredCommands(Player player, Map<String, Object> itemConfig) {
+        executeConfiguredCommands(player, itemConfig, null);
+    }
+
+    /**
+     * 执行配置文件中的命令（支持%itemid%占位符）
+     */
+    private void executeConfiguredCommands(Player player, Map<String, Object> itemConfig, String itemId) {
         // 检查是否有command配置
         if (itemConfig.containsKey("command")) {
             Object commandObj = itemConfig.get("command");
 
             if (commandObj instanceof String) {
                 String command = (String) commandObj;
+                // 替换group的%itemid%占位符
+                if (itemId != null) {
+                    command = command.replace("%itemid%", itemId);
+                }
                 executeSingleCommand(player, command);
             } else if (commandObj instanceof Iterable) {
                 // 支持多个命令
                 for (Object cmdObj : (Iterable<?>) commandObj) {
                     if (cmdObj instanceof String) {
-                        executeSingleCommand(player, (String) cmdObj);
+                        String command = (String) cmdObj;
+                        // 替换group的%itemid%占位符
+                        if (itemId != null) {
+                            command = command.replace("%itemid%", itemId);
+                        }
+                        executeSingleCommand(player, command);
                     }
                 }
             }
@@ -231,10 +247,10 @@ public class FkeyAction implements Listener {
     }
 
     /**
-     * 获取物品的读条时间配置
+     * 获取物品的读条时间配置（支持Action.yml和group.yml）
      */
-    private int getChargeTime(String itemId) {
-        Map<String, Object> config = actionManager.getItemConfig(itemId);
+    private int getChargeTime(ItemStack item) {
+        Map<String, Object> config = actionManager.getEffectiveConfig(item);
 
         if (config != null && config.containsKey("time")) {
             Object timeObj = config.get("time");

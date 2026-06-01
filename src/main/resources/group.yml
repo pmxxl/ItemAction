@@ -1,0 +1,37 @@
+# group.yml - 物品组快捷功能配置
+# 通过NBT标签匹配物品组，自动应用动作模板
+# 类似于"继承"机制，避免为同类型物品重复配置相同的动作
+#
+# 匹配逻辑:
+#   当物品的NBT中包含匹配条件的标签和值时，自动应用该组的动作模板
+#
+# NBT查找规则:
+#   - 含 . 的路径: 按显式路径逐层查找 (如 "PublicBukkitValues.mythicmobs:type")
+#   - 不含 . 的标签: 先查根NBT → 未找到则自动到 PublicBukkitValues 下查找
+#   所以配置中直接写 "itemaction" 即可匹配存储在 PublicBukkitValues 下的标签
+#
+# 支持的占位符（在template的command、permission等字段中使用）:
+#   %player%  - 玩家名称
+#   %uuid%    - 玩家UUID
+#   %itemid%  - 物品的NI ID（动态获取当前物品的ID）
+#
+# 配置说明:
+#   match.tag   - NBT标签名
+#   match.value - NBT标签值
+#   template    - 动作模板（字段与Action.yml中的物品配置相同）
+
+# 功法组 - 以轻身术为模板
+# 物品NBT中写入 itemaction: 功法 即可匹配
+# 适用于 NI 物品或任何在 PublicBukkitValues 下设置了 itemaction 标签的物品
+功法:
+  match:
+    tag: 'itemaction'    # 自动在根和PublicBukkitValues下查找
+    value: '功法'
+  template:
+    action: ['right']
+    time: 10
+    command: "lp user %player% permission set %itemid% as console"
+    amount: 1
+    text: '可阅读该书籍'
+    permission-text: '已阅读该书籍'
+    move: false

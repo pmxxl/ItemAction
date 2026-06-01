@@ -13,6 +13,7 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -96,7 +97,21 @@ public class PlaceholderAPI extends PlaceholderExpansion {
             return handleNoItemPlaceholders(params);
         }
         String itemId = actionManager.getItemIdFromItem(itemInHand);
+        // 获取有效配置（优先Action.yml，其次group.yml）
+        Map<String, Object> effectiveConfig = actionManager.getEffectiveConfig(itemInHand);
         List<String> actions = actionManager.getItemActions(itemId);
+        // 如果Action.yml中没有，尝试从group模板中获取actions
+        if (actions == null && effectiveConfig != null) {
+            Object actionObj = effectiveConfig.get("action");
+            if (actionObj instanceof List) {
+                actions = new ArrayList<>();
+                for (Object a : (List<?>) actionObj) {
+                    if (a instanceof String) {
+                        actions.add(((String) a).toUpperCase());
+                    }
+                }
+            }
+        }
         if (actions == null) {
             return handleNoItemPlaceholders(params);
         }
@@ -114,12 +129,11 @@ public class PlaceholderAPI extends PlaceholderExpansion {
 
             // 新增：返回配置中的text文字信息
             case "text":
-                Map<String, Object> itemConfig = actionManager.getItemConfig(itemId);
-                if (itemConfig != null) {
+                if (effectiveConfig != null) {
                     // 检查是否有权限配置
-                    if (itemConfig.containsKey("permission") && itemConfig.containsKey("permission-text")) {
-                        String permission = (String) itemConfig.get("permission");
-                        String permissionText = (String) itemConfig.get("permission-text");
+                    if (effectiveConfig.containsKey("permission") && effectiveConfig.containsKey("permission-text")) {
+                        String permission = (String) effectiveConfig.get("permission");
+                        String permissionText = (String) effectiveConfig.get("permission-text");
 
                         // 如果玩家拥有该权限，返回permission-text
                         if (player.hasPermission(permission)) {
@@ -127,8 +141,8 @@ public class PlaceholderAPI extends PlaceholderExpansion {
                         }
                     }
                     // 如果没有权限配置或玩家没有权限，返回普通的text
-                    if (itemConfig.containsKey("text")) {
-                        Object textObj = itemConfig.get("text");
+                    if (effectiveConfig.containsKey("text")) {
+                        Object textObj = effectiveConfig.get("text");
                         if (textObj instanceof String) {
                             return (String) textObj;
                         }
@@ -159,9 +173,9 @@ public class PlaceholderAPI extends PlaceholderExpansion {
             case "action_count":
                 return String.valueOf(actions.size());
 
-            // 特定物品检测
+            // 特定物品检测（含Action.yml和group.yml）
             case "is_configured_item":
-                return String.valueOf(actionManager.hasItemConfig(itemId));
+                return String.valueOf(effectiveConfig != null);
 
             default:
                 // 处理带参数的占位符

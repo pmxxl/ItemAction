@@ -7,6 +7,7 @@ import com.horizonkk.itemAction.event.*;
 import com.horizonkk.itemAction.hook.PlaceholderAPI;
 import com.horizonkk.itemAction.manager.ActionManager;
 import com.horizonkk.itemAction.manager.ChargeManager;
+import com.horizonkk.itemAction.manager.GroupManager;
 import com.horizonkk.itemAction.manager.SpellChargeManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -14,6 +15,7 @@ import java.util.Map;
 
 public final class ItemAction extends JavaPlugin {
     private ActionManager actionManager;
+    private GroupManager groupManager;
     private PlaceholderAPI placeholderAPI;
     private ItemActionCommand commandHandler;
     private ChargeAPI chargeManager; // 新增共享读条管理器
@@ -24,10 +26,10 @@ public final class ItemAction extends JavaPlugin {
     public void onEnable() {
         // Plugin startup logic
         actionManager = new ActionManager(this);
+        groupManager = new GroupManager(this); // 初始化物品组管理器
+        actionManager.setGroupManager(groupManager); // 注入GroupManager
         chargeManager = new ChargeManager(this); // 初始化共享读条管理器
         spellChargeManager = new SpellChargeManager(this); // 初始化法术读条管理器
-        // 初始化ActionManager
-        // 注册PlaceholderAPI
         // 注册事件
         registerEvents();
         registerPlaceholderAPI();
@@ -69,6 +71,10 @@ public final class ItemAction extends JavaPlugin {
 
     public ActionManager getActionManager() {
         return actionManager;
+    }
+
+    public GroupManager getGroupManager() {
+        return groupManager;
     }
 
     public Map<String, Object> getItemConfig(String itemId) {
