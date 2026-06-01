@@ -230,14 +230,10 @@ public class ChargeManager implements ChargeAPI {
 
     private boolean isMoveAllowed(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
-        Map<String, Object> config = actionManager.getEffectiveConfig(item);
-        if (config != null && config.containsKey("move")) {
-            Object moveObj = config.get("move");
-            if (moveObj instanceof Boolean) {
-                return (Boolean) moveObj;
-            }
-        }
-        return true; // 默认为true，允许移动
+        // 【优化】使用已解析config的静态方法，避免GroupManager也重复查询
+        String itemId = actionManager.getItemIdFromItem(item);
+        Map<String, Object> config = actionManager.getEffectiveConfig(item, itemId);
+        return ActionManager.isMoveAllowed(config);
     }
 
 }

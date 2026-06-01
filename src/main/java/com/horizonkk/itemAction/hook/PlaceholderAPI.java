@@ -96,9 +96,9 @@ public class PlaceholderAPI extends PlaceholderExpansion {
         if (itemInHand == null) {
             return handleNoItemPlaceholders(params);
         }
+        // 【优化】itemId计算一次，复用给getEffectiveConfig
         String itemId = actionManager.getItemIdFromItem(itemInHand);
-        // 获取有效配置（优先Action.yml，其次group.yml）
-        Map<String, Object> effectiveConfig = actionManager.getEffectiveConfig(itemInHand);
+        Map<String, Object> effectiveConfig = actionManager.getEffectiveConfig(itemInHand, itemId);
         List<String> actions = actionManager.getItemActions(itemId);
         // 如果Action.yml中没有，尝试从group模板中获取actions
         if (actions == null && effectiveConfig != null) {

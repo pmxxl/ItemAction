@@ -20,6 +20,11 @@ public class GroupManager {
     private YamlConfiguration groupConfig;
     private final Map<String, GroupEntry> groups = new LinkedHashMap<>();
 
+    // 【缓存】itemId → 匹配的GroupEntry（null值表示"确认无匹配"）
+    private final Map<String, GroupEntry> matchCache = new HashMap<>();
+    // 【缓存】"groupName:itemId" → 解析后的模板配置
+    private final Map<String, Map<String, Object>> templateCache = new HashMap<>();
+
     public GroupManager(ItemAction plugin) {
         this.plugin = plugin;
         loadGroupConfig();
@@ -42,6 +47,9 @@ public class GroupManager {
      */
     private void buildGroupCache() {
         groups.clear();
+        // 清除查询缓存（group定义变了，旧的匹配关系失效）
+        matchCache.clear();
+        templateCache.clear();
         for (String key : groupConfig.getKeys(false)) {
             if (groupConfig.isConfigurationSection(key)) {
                 ConfigurationSection section = groupConfig.getConfigurationSection(key);
@@ -95,6 +103,26 @@ public class GroupManager {
     }
 
     /**
+     * 【高效】根据物品NBT匹配对应的组，优先查缓存
+     * 同一个itemId的匹配结果在配置重载前是不变的
+     *
+     * @param item   物品堆
+     * @param itemId 已计算的物品ID（作为缓存键）
+     * @return 匹配的组条目，如果没有匹配则返回null
+     */
+    public GroupEntry getMatchingGroup(ItemStack item, String itemId) {
+        // 缓存命中
+        if (matchCache.containsKey(itemId)) {
+            return matchCache.get(itemId);
+        }
+        // 执行NBT扫描
+        GroupEntry result = getMatchingGroup(item);
+        // 缓存结果（包括null，表示"此itemId不匹配任何group"）
+        matchCache.put(itemId, result);
+        return result;
+    }
+
+    /**
      * 检查物品是否匹配任何组
      *
      * @param item 物品堆
@@ -105,20 +133,27 @@ public class GroupManager {
     }
 
     /**
-     * 解析模板中的占位符，生成最终配置
-     * 将 %itemid% 替换为实际的物品NI ID
+     * 【高效】解析模板中的占位符，生成最终配置，优先查缓存
+     * 同一个 (groupName, itemId) 组合的解析结果始终不变
      *
      * @param group  匹配的组条目
      * @param itemId 物品的NI ID
      * @return 解析后的配置Map
      */
     public Map<String, Object> resolveTemplate(GroupEntry group, String itemId) {
+        String cacheKey = group.groupName + ":" + itemId;
+        Map<String, Object> cached = templateCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
         Map<String, Object> resolved = deepCopyMap(group.template);
         resolvePlaceholders(resolved, itemId);
-        // 如果模板中没有显式配置permission，则自动使用itemId作为permission
         if (!resolved.containsKey("permission")) {
             resolved.put("permission", itemId);
         }
+
+        templateCache.put(cacheKey, resolved);
         return resolved;
     }
 

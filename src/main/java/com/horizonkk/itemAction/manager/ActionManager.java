@@ -3,6 +3,7 @@ package com.horizonkk.itemAction.manager;
 import com.horizonkk.itemAction.ItemAction;
 import com.horizonkk.itemAction.hook.NeigeItemsAPI;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.File;
@@ -141,18 +142,27 @@ public class ActionManager {
      */
     public Map<String, Object> getEffectiveConfig(ItemStack item) {
         if (item == null) return null;
-
         String itemId = getItemIdFromItem(item);
+        return getEffectiveConfig(item, itemId);
+    }
 
+    /**
+     * 【高效重载】使用已计算好的itemId获取有效配置，跳过重复的NBT读取
+     *
+     * @param item   物品堆（仅用于group匹配时的NBT查询）
+     * @param itemId 已计算好的物品ID
+     * @return 有效配置Map，如果都没有匹配则返回null
+     */
+    public Map<String, Object> getEffectiveConfig(ItemStack item, String itemId) {
         // 优先检查Action.yml中的直接配置
         Map<String, Object> directConfig = getItemConfig(itemId);
         if (directConfig != null) {
             return directConfig;
         }
 
-        // 其次检查group.yml中的组匹配
+        // 其次检查group.yml中的组匹配（使用缓存版）
         if (groupManager != null) {
-            GroupManager.GroupEntry matchedGroup = groupManager.getMatchingGroup(item);
+            GroupManager.GroupEntry matchedGroup = groupManager.getMatchingGroup(item, itemId);
             if (matchedGroup != null) {
                 return groupManager.resolveTemplate(matchedGroup, itemId);
             }
@@ -175,9 +185,9 @@ public class ActionManager {
             return true;
         }
 
-        // 然后检查组匹配
+        // 然后检查组匹配（使用缓存版）
         if (groupManager != null) {
-            GroupManager.GroupEntry matchedGroup = groupManager.getMatchingGroup(item);
+            GroupManager.GroupEntry matchedGroup = groupManager.getMatchingGroup(item, itemId);
             if (matchedGroup != null) {
                 Map<String, Object> template = groupManager.resolveTemplate(matchedGroup, itemId);
                 Object actionObj = template.get("action");
@@ -202,6 +212,76 @@ public class ActionManager {
      */
     public boolean hasConfigForItem(ItemStack item) {
         return getEffectiveConfig(item) != null;
+    }
+
+    // ==================== 静态工具方法 —— 从已解析的配置Map直接读取，避免重复NBT查询 ====================
+
+    /**
+     * 【高效】从已解析的配置Map中检查是否包含指定动作
+     * 避免重复调用 canPerformAction(ItemStack, String) 导致的多次NBT查询
+     *
+     * @param config 已解析的有效配置Map（来自 getEffectiveConfig）
+     * @param action 动作类型 (F, LEFT, RIGHT, SHIFT)
+     * @return 是否包含该动作
+     */
+    public static boolean configHasAction(Map<String, Object> config, String action) {
+        if (config == null) return false;
+        Object actionObj = config.get("action");
+        if (actionObj instanceof List) {
+            for (Object a : (List<?>) actionObj) {
+                if (a instanceof String && ((String) a).equalsIgnoreCase(action)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 【高效】从已解析的配置Map中读取读条时间
+     *
+     * @param config 已解析的有效配置Map
+     * @return 读条时间（秒），未配置返回0
+     */
+    public static int getChargeTime(Map<String, Object> config) {
+        if (config != null) {
+            Object timeObj = config.get("time");
+            if (timeObj instanceof Number) {
+                return ((Number) timeObj).intValue();
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * 【高效】从已解析的配置Map中读取移动允许配置
+     *
+     * @param config 已解析的有效配置Map
+     * @return 是否允许移动，默认true
+     */
+    public static boolean isMoveAllowed(Map<String, Object> config) {
+        if (config != null) {
+            Object moveObj = config.get("move");
+            if (moveObj instanceof Boolean) {
+                return (Boolean) moveObj;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 【高效】从已解析的配置Map中检查玩家权限限制
+     *
+     * @param config 已解析的有效配置Map
+     * @param player 玩家
+     * @return 玩家拥有限制权限则返回true
+     */
+    public static boolean hasPermissionRestriction(Map<String, Object> config, Player player) {
+        if (config != null && config.containsKey("permission")) {
+            String permission = (String) config.get("permission");
+            return player.hasPermission(permission);
+        }
+        return false;
     }
 
     // 重新加载配置文件
