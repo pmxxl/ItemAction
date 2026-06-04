@@ -57,13 +57,8 @@ public class FkeyAction implements Listener {
             return;
         }
 
-        // 无权限检查 —— nopermission: 没有该权限时阻止
+        // 无权限检查 —— nopermission: 没有该权限时阻止（静默，不发送聊天消息，nopermission-text仅用于PlaceholderAPI的actionbar显示）
         if (ActionManager.hasNopermissionRestriction(config, player)) {
-            String nopermissionText = ActionManager.getNopermissionText(config);
-            if (nopermissionText != null && !nopermissionText.isEmpty()) {
-                player.sendMessage(ChatColor.translateAlternateColorCodes('&', nopermissionText
-                        .replace("%player%", player.getName())));
-            }
             return;
         }
 
@@ -87,11 +82,16 @@ public class FkeyAction implements Listener {
      * 执行F键动作（使用已解析的配置）
      */
     public void executeFAction(Player player, String itemId, ItemStack itemInHand, Map<String, Object> itemConfig) {
-        if (itemConfig != null) {
-            executeConfiguredCommands(player, itemConfig, itemId);
-            handleItemDeduction(player, itemInHand, itemConfig);
-            sendCompletionMessage(player, itemId, itemInHand, itemConfig);
+        if (itemConfig == null) return;
+
+        // 执行前重新检查nopermission（读条期间权限可能发生变化，静默阻止）
+        if (ActionManager.hasNopermissionRestriction(itemConfig, player)) {
+            return;
         }
+
+        executeConfiguredCommands(player, itemConfig, itemId);
+        handleItemDeduction(player, itemInHand, itemConfig);
+        sendCompletionMessage(player, itemId, itemInHand, itemConfig);
     }
 
     /**
