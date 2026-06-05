@@ -20,6 +20,15 @@ public interface SpellChargeAPI {
     void startCharging(Player player, String spellId, int targetTime, Runnable onComplete);
 
     /**
+     * 开始读条（毫秒精度），如果已有读条则自动取消旧的
+     * @param player           玩家
+     * @param spellId          法术ID
+     * @param targetTimeMillis 读条时间（毫秒）
+     * @param onComplete       读条完成回调（在主线程执行）
+     */
+    void startChargingMillis(Player player, String spellId, int targetTimeMillis, Runnable onComplete);
+
+    /**
      * 取消读条
      */
     void cancelCharging(UUID playerId);

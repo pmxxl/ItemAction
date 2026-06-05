@@ -65,6 +65,43 @@ public class SpellChargeManager implements SpellChargeAPI {
     }
 
     @Override
+    public void startChargingMillis(Player player, String spellId, int targetTimeMillis, Runnable onComplete) {
+        UUID playerId = player.getUniqueId();
+
+        if (chargeTasks.containsKey(playerId)) {
+            cancelCharging(playerId);
+        }
+
+        chargeTargets.put(playerId, targetTimeMillis);
+        chargeProgress.put(playerId, 0.0);
+        chargeSpellIds.put(playerId, spellId);
+        chargeCallbacks.put(playerId, onComplete);
+
+        // 每1tick执行，进度增量 = 50ms（保证精确计时）
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    cancelCharging(playerId);
+                    return;
+                }
+
+                double elapsed = chargeProgress.getOrDefault(playerId, 0.0);
+                int target = chargeTargets.getOrDefault(playerId, targetTimeMillis);
+
+                elapsed += 50.0;
+                chargeProgress.put(playerId, elapsed);
+
+                if (elapsed >= target) {
+                    completeCharging(playerId);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
+
+        chargeTasks.put(playerId, task);
+    }
+
+    @Override
     public void cancelCharging(UUID playerId) {
         BukkitTask task = chargeTasks.remove(playerId);
         if (task != null) {
