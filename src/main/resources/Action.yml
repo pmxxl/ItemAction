@@ -5,6 +5,8 @@
   # 可用的动作有 F(切换物品键使用) left(左键) right(右键) shift(潜行)
   time: 5 #手持物品按下按键后读条的时间 默认为0秒 切换物品重置
   command: "nye give %player% lingqi 10 as console" #执行完后执行的命令
+  progress-action: lingqi_absorb #吸收灵气进度事件，供 HorizonKKGuide/Chemdah 任务监听
+  Loop: true #循环 会自动触发吸收灵石
   # as op 为op执行
   # 不添加则为普通玩家执行
   # as console 为控制台执行
@@ -26,3 +28,80 @@
   text: '可阅读该书籍' #返回的文字变量信息
   permission: '轻身术' #如果有该权限时
   permission-text: '已阅读该书籍'
+
+
+聚灵阵:
+  Id: '聚灵阵'
+  action: ['right']
+  time: 10
+  command: "lp user %player% permission set 聚灵阵 as console"
+  amount: 1
+  text: '可阅读该阵法书籍'
+  permission: '聚灵阵'
+  permission-text: '已学习该阵法'
+
+
+灼炎阵:
+  Id: '灼炎阵'
+  action: ['right']
+  time: 10
+  command: "lp user %player% permission set 灼炎阵 as console"
+  amount: 1
+  text: '可阅读该阵法书籍'
+  permission: '灼炎阵'
+  permission-text: '已学习该阵法'
+
+
+回春阵:
+  Id: '回春阵'
+  action: ['right']
+  time: 10
+  command: "lp user %player% permission set 回春阵 as console"
+  amount: 1
+  text: '可阅读该阵法书籍'
+  permission: '回春阵'
+  permission-text: '已学习该阵法'
+
+
+明月剑阵:
+  Id: '明月剑阵'
+  action: ['right']
+  time: 10
+  command: "lp user %player% permission set 明月剑阵 as console"
+  amount: 1
+  text: '可阅读该阵法书籍'
+  permission: '明月剑阵'
+  permission-text: '已学习该阵法'
+
+
+小五行颠倒阵:
+  Id: '小五行颠倒阵'
+  action: ['right']
+  time: 10
+  command: "lp user %player% permission set 小五行颠倒阵 as console"
+  amount: 1
+  text: '可阅读该阵法书籍'
+  permission: '小五行颠倒阵'
+  permission-text: '已学习该阵法'
+
+
+小迷踪阵:
+  Id: '小迷踪阵'
+  action: ['right']
+  time: 10
+  command: "lp user %player% permission set 小迷踪阵 as console"
+  amount: 1
+  text: '可阅读该阵法书籍'
+  permission: '小迷踪阵'
+  permission-text: '已学习该阵法'
+
+
+禁空阵:
+  Id: '禁空阵'
+  action: ['right']
+  time: 10
+  command: "lp user %player% permission set 禁空阵 as console"
+  amount: 1
+  text: '可阅读该阵法书籍'
+  permission: '禁空阵'
+  permission-text: '已学习该阵法'

@@ -286,6 +286,30 @@ public class ActionManager {
     }
 
     /**
+     * Reads the Loop/loop flag from an action config.
+     */
+    public static boolean isLoopEnabled(Map<String, Object> config) {
+        if (config == null) return false;
+
+        for (Map.Entry<String, Object> entry : config.entrySet()) {
+            if (!"loop".equalsIgnoreCase(entry.getKey())) {
+                continue;
+            }
+
+            Object loopObj = entry.getValue();
+            if (loopObj instanceof Boolean) {
+                return (Boolean) loopObj;
+            }
+            if (loopObj instanceof String) {
+                return Boolean.parseBoolean((String) loopObj);
+            }
+            return false;
+        }
+
+        return false;
+    }
+
+    /**
      * 【高效】从已解析的配置Map中检查玩家无权限限制
      * 如果配置了nopermission且玩家没有该权限，返回true表示应阻止执行
      *

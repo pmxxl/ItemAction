@@ -12,6 +12,7 @@ import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Map;
+import java.util.Locale;
 import java.util.UUID;
 
 public class FkeyAction implements Listener {
@@ -89,9 +90,13 @@ public class FkeyAction implements Listener {
             return;
         }
 
-        executeConfiguredCommands(player, itemConfig, itemId);
+        boolean commandExecuted = executeConfiguredCommands(player, itemConfig, itemId);
         handleItemDeduction(player, itemInHand, itemConfig);
         sendCompletionMessage(player, itemId, itemInHand, itemConfig);
+        if (commandExecuted && shouldCallLingQiAbsorbEvent(itemConfig)) {
+            callLingQiAbsorbEvent(player, itemId, itemConfig);
+        }
+        tryStartLoop(player, itemId, itemConfig);
     }
 
     /**
@@ -102,21 +107,68 @@ public class FkeyAction implements Listener {
         executeFAction(player, itemId, itemInHand, config);
     }
 
-    private void executeConfiguredCommands(Player player, Map<String, Object> itemConfig, String itemId) {
+    private void tryStartLoop(Player player, String itemId, Map<String, Object> completedConfig) {
+        if (!ActionManager.isLoopEnabled(completedConfig)) {
+            return;
+        }
+
+        if (getConfiguredDeductionAmount(completedConfig) != 1) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        if (chargeManager.isPlayerCharging(playerId)) {
+            return;
+        }
+
+        ItemStack nextItem = player.getInventory().getItemInMainHand();
+        if (nextItem == null || nextItem.getType() == Material.AIR) {
+            return;
+        }
+
+        String nextItemId = actionManager.getItemIdFromItem(nextItem);
+        if (!itemId.equals(nextItemId)) {
+            return;
+        }
+
+        Map<String, Object> nextConfig = actionManager.getEffectiveConfig(nextItem, nextItemId);
+        if (nextConfig == null
+                || !ActionManager.isLoopEnabled(nextConfig)
+                || !ActionManager.configHasAction(nextConfig, "F")
+                || ActionManager.hasPermissionRestriction(nextConfig, player)
+                || ActionManager.hasNopermissionRestriction(nextConfig, player)
+                || getConfiguredDeductionAmount(nextConfig) != 1) {
+            return;
+        }
+
+        int chargeTime = ActionManager.getChargeTime(nextConfig);
+        if (chargeTime <= 0) {
+            return;
+        }
+
+        chargeManager.startCharging(player, nextItemId, chargeTime, "F");
+    }
+
+    private boolean executeConfiguredCommands(Player player, Map<String, Object> itemConfig, String itemId) {
         Object commandObj = itemConfig.get("command");
-        if (commandObj == null) return;
+        if (commandObj == null) return false;
 
         if (commandObj instanceof String) {
             String command = ((String) commandObj).replace("%itemid%", itemId);
             executeSingleCommand(player, command);
+            return true;
         } else if (commandObj instanceof Iterable) {
+            boolean executed = false;
             for (Object cmdObj : (Iterable<?>) commandObj) {
                 if (cmdObj instanceof String) {
                     String command = ((String) cmdObj).replace("%itemid%", itemId);
                     executeSingleCommand(player, command);
+                    executed = true;
                 }
             }
+            return executed;
         }
+        return false;
     }
 
     private void executeSingleCommand(Player player, String command) {
@@ -149,19 +201,81 @@ public class FkeyAction implements Listener {
         plugin.getServer().dispatchCommand(plugin.getServer().getConsoleSender(), command);
     }
 
-    private void handleItemDeduction(Player player, ItemStack itemInHand, Map<String, Object> itemConfig) {
-        Object amountObj = itemConfig.get("amount");
-        if (amountObj instanceof Number) {
-            int amountToDeduct = ((Number) amountObj).intValue();
-            if (amountToDeduct == 1 && itemInHand != null && itemInHand.getAmount() > 0) {
-                int currentAmount = itemInHand.getAmount();
-                if (currentAmount > 1) {
-                    itemInHand.setAmount(currentAmount - 1);
-                } else {
-                    player.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+    private boolean shouldCallLingQiAbsorbEvent(Map<String, Object> itemConfig) {
+        Object progressAction = firstConfiguredValue(itemConfig,
+                "progress-action",
+                "progressAction",
+                "dao-progress",
+                "daoProgress");
+        if (progressAction != null) {
+            String action = String.valueOf(progressAction);
+            return "lingqi_absorb".equalsIgnoreCase(action)
+                    || "spirit_stone_absorb".equalsIgnoreCase(action);
+        }
+
+        return commandContainsLingQi(itemConfig.get("command"));
+    }
+
+    private Object firstConfiguredValue(Map<String, Object> itemConfig, String... keys) {
+        for (String key : keys) {
+            Object value = itemConfig.get(key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private boolean commandContainsLingQi(Object commandObj) {
+        if (commandObj instanceof String) {
+            return containsLingQiToken((String) commandObj);
+        }
+        if (commandObj instanceof Iterable) {
+            for (Object cmdObj : (Iterable<?>) commandObj) {
+                if (cmdObj instanceof String && containsLingQiToken((String) cmdObj)) {
+                    return true;
                 }
             }
         }
+        return false;
+    }
+
+    private boolean containsLingQiToken(String command) {
+        String normalized = " " + command.toLowerCase(Locale.ROOT).replace('\t', ' ') + " ";
+        return normalized.contains(" lingqi ");
+    }
+
+    private void callLingQiAbsorbEvent(Player player, String itemId, Map<String, Object> itemConfig) {
+        plugin.getServer().getPluginManager().callEvent(
+                new LingQiAbsorbEvent(player, itemId, getConsumedAmount(itemConfig)));
+    }
+
+    private int getConsumedAmount(Map<String, Object> itemConfig) {
+        Object amountObj = itemConfig.get("amount");
+        if (amountObj instanceof Number) {
+            return Math.max(0, ((Number) amountObj).intValue());
+        }
+        return 1;
+    }
+
+    private void handleItemDeduction(Player player, ItemStack itemInHand, Map<String, Object> itemConfig) {
+        int amountToDeduct = getConfiguredDeductionAmount(itemConfig);
+        if (amountToDeduct == 1 && itemInHand != null && itemInHand.getAmount() > 0) {
+            int currentAmount = itemInHand.getAmount();
+            if (currentAmount > 1) {
+                itemInHand.setAmount(currentAmount - 1);
+            } else {
+                player.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+            }
+        }
+    }
+
+    private int getConfiguredDeductionAmount(Map<String, Object> itemConfig) {
+        Object amountObj = itemConfig.get("amount");
+        if (amountObj instanceof Number) {
+            return ((Number) amountObj).intValue();
+        }
+        return 0;
     }
 
     private void sendCompletionMessage(Player player, String itemId, ItemStack item, Map<String, Object> itemConfig) {
