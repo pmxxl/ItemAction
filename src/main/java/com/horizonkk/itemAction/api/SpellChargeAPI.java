@@ -29,6 +29,16 @@ public interface SpellChargeAPI {
     void startChargingMillis(Player player, String spellId, int targetTimeMillis, Runnable onComplete);
 
     /**
+     * 带取消通知的读条。完成与取消回调互斥，均在主线程执行，最多执行一次。
+     * 被新读条替换、主动取消、离线或 cleanup 时执行 onCancel。
+     * 旧实现不支持取消通知时明确拒绝，不能退化为立即完成。
+     */
+    default void startChargingMillis(Player player, String spellId, int targetTimeMillis,
+                                     Runnable onComplete, Runnable onCancel) {
+        throw new UnsupportedOperationException("此 ItemAction 版本不支持读条取消通知");
+    }
+
+    /**
      * 取消读条
      */
     void cancelCharging(UUID playerId);

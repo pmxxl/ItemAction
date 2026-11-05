@@ -2,26 +2,40 @@ package com.horizonkk.itemAction.manager;
 
 import com.horizonkk.itemAction.ItemAction;
 import com.horizonkk.itemAction.api.SpellChargeAPI;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
+/** One owned session per player; removing it precedes either terminal callback. */
 public class SpellChargeManager implements SpellChargeAPI {
-
     private final ItemAction plugin;
+    private final Map<UUID, Charge> charges = new ConcurrentHashMap<>();
+    private boolean cleaningUp;
 
-    private static final int UPDATE_INTERVAL = 4;
-    private static final double PROGRESS_INCREMENT = 0.2;
+    private static final class Charge {
+        final Player player;
+        final String id;
+        final int durationMillis;
+        final Runnable complete;
+        final Runnable cancel;
+        volatile long elapsedMillis;
+        BukkitTask task;
 
-    private final Map<UUID, BukkitTask> chargeTasks = new HashMap<>();
-    private final Map<UUID, Double> chargeProgress = new HashMap<>();
-    private final Map<UUID, Integer> chargeTargets = new HashMap<>();
-    private final Map<UUID, String> chargeSpellIds = new HashMap<>();
-    private final Map<UUID, Runnable> chargeCallbacks = new HashMap<>();
+        Charge(Player player, String id, int durationMillis, Runnable complete, Runnable cancel) {
+            this.player = player;
+            this.id = id;
+            this.durationMillis = durationMillis;
+            this.complete = complete;
+            this.cancel = cancel;
+        }
+    }
 
     public SpellChargeManager(ItemAction plugin) {
         this.plugin = plugin;
@@ -29,127 +43,98 @@ public class SpellChargeManager implements SpellChargeAPI {
 
     @Override
     public void startCharging(Player player, String spellId, int targetTime, Runnable onComplete) {
-        UUID playerId = player.getUniqueId();
-
-        // 如果已有读条，自动取消旧的
-        if (chargeTasks.containsKey(playerId)) {
-            cancelCharging(playerId);
-        }
-
-        chargeTargets.put(playerId, targetTime);
-        chargeProgress.put(playerId, 0.0);
-        chargeSpellIds.put(playerId, spellId);
-        chargeCallbacks.put(playerId, onComplete);
-
-        BukkitTask task = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!player.isOnline()) {
-                    cancelCharging(playerId);
-                    return;
-                }
-
-                double currentProgress = chargeProgress.getOrDefault(playerId, 0.0);
-                int target = chargeTargets.getOrDefault(playerId, targetTime);
-
-                currentProgress += PROGRESS_INCREMENT;
-                chargeProgress.put(playerId, currentProgress);
-
-                if (currentProgress >= target) {
-                    completeCharging(playerId);
-                }
-            }
-        }.runTaskTimer(plugin, 0L, UPDATE_INTERVAL);
-
-        chargeTasks.put(playerId, task);
+        startChargingMillis(player, spellId, Math.toIntExact((long) targetTime * 1000L), onComplete);
     }
 
     @Override
     public void startChargingMillis(Player player, String spellId, int targetTimeMillis, Runnable onComplete) {
+        startChargingMillis(player, spellId, targetTimeMillis, onComplete, null);
+    }
+
+    @Override
+    public void startChargingMillis(Player player, String spellId, int targetTimeMillis,
+                                    Runnable onComplete, Runnable onCancel) {
+        requireMainThread();
+        if (cleaningUp || !plugin.isEnabled()) throw new IllegalStateException("读条服务正在关闭");
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(spellId, "spellId");
+        if (!player.isOnline()) throw new IllegalArgumentException("玩家不在线");
+        if (targetTimeMillis <= 0) throw new IllegalArgumentException("读条时间必须大于 0");
         UUID playerId = player.getUniqueId();
-
-        if (chargeTasks.containsKey(playerId)) {
-            cancelCharging(playerId);
+        cancelCharging(playerId);
+        // A cancellation callback may itself start another charge. Never orphan that session.
+        if (charges.containsKey(playerId)) throw new IllegalStateException("取消回调已启动新的读条");
+        Charge charge = new Charge(player, spellId, targetTimeMillis, onComplete, onCancel);
+        charges.put(playerId, charge);
+        try {
+            // Server tick time: first increment occurs after one tick, never at time zero.
+            charge.task = Bukkit.getScheduler().runTaskTimer(plugin, () -> tick(playerId, charge), 1L, 1L);
+        } catch (RuntimeException exception) {
+            finish(playerId, charge, false);
+            throw exception;
         }
+    }
 
-        chargeTargets.put(playerId, targetTimeMillis);
-        chargeProgress.put(playerId, 0.0);
-        chargeSpellIds.put(playerId, spellId);
-        chargeCallbacks.put(playerId, onComplete);
-
-        // 每1tick执行，进度增量 = 50ms（保证精确计时）
-        BukkitTask task = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!player.isOnline()) {
-                    cancelCharging(playerId);
-                    return;
-                }
-
-                double elapsed = chargeProgress.getOrDefault(playerId, 0.0);
-                int target = chargeTargets.getOrDefault(playerId, targetTimeMillis);
-
-                elapsed += 50.0;
-                chargeProgress.put(playerId, elapsed);
-
-                if (elapsed >= target) {
-                    completeCharging(playerId);
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 1L);
-
-        chargeTasks.put(playerId, task);
+    private void tick(UUID playerId, Charge charge) {
+        if (charges.get(playerId) != charge) return;
+        if (!charge.player.isOnline()) {
+            finish(playerId, charge, false);
+            return;
+        }
+        charge.elapsedMillis += 50L;
+        if (charge.elapsedMillis >= charge.durationMillis) finish(playerId, charge, true);
     }
 
     @Override
     public void cancelCharging(UUID playerId) {
-        BukkitTask task = chargeTasks.remove(playerId);
-        if (task != null) {
-            task.cancel();
+        requireMainThread();
+        Charge charge = playerId == null ? null : charges.get(playerId);
+        if (charge != null) finish(playerId, charge, false);
+    }
+
+    private void finish(UUID playerId, Charge charge, boolean completed) {
+        if (!charges.remove(playerId, charge)) return;
+        if (charge.task != null) charge.task.cancel();
+        Runnable callback = completed ? charge.complete : charge.cancel;
+        if (callback != null) {
+            try {
+                callback.run();
+            } catch (RuntimeException exception) {
+                plugin.getLogger().log(Level.SEVERE, "读条回调执行失败: " + charge.id, exception);
+            }
         }
-        chargeProgress.remove(playerId);
-        chargeTargets.remove(playerId);
-        chargeSpellIds.remove(playerId);
-        chargeCallbacks.remove(playerId);
     }
 
     @Override
     public int getChargeProgressPercent(UUID playerId) {
-        if (!chargeTasks.containsKey(playerId)) {
-            return -1;
-        }
-
-        double currentProgress = chargeProgress.getOrDefault(playerId, 0.0);
-        int target = chargeTargets.getOrDefault(playerId, 1);
-
-        if (target <= 0) return 0;
-
-        return Math.min(100, (int) ((currentProgress / target) * 100));
+        Charge charge = playerId == null ? null : charges.get(playerId);
+        return charge == null ? -1 : (int) Math.min(100L, charge.elapsedMillis * 100L / charge.durationMillis);
     }
 
     @Override
     public boolean isPlayerCharging(UUID playerId) {
-        return chargeTasks.containsKey(playerId);
+        return playerId != null && charges.containsKey(playerId);
     }
 
     @Override
     public String getCurrentSpellId(UUID playerId) {
-        return chargeSpellIds.get(playerId);
+        Charge charge = playerId == null ? null : charges.get(playerId);
+        return charge == null ? null : charge.id;
     }
 
     @Override
     public void cleanup() {
-        for (UUID playerId : chargeTasks.keySet()) {
-            cancelCharging(playerId);
+        requireMainThread();
+        boolean alreadyCleaningUp = cleaningUp;
+        cleaningUp = true;
+        try {
+            for (UUID playerId : List.copyOf(charges.keySet())) cancelCharging(playerId);
+        } finally {
+            cleaningUp = alreadyCleaningUp;
         }
     }
 
-    private void completeCharging(UUID playerId) {
-        Runnable callback = chargeCallbacks.remove(playerId);
-        cancelCharging(playerId);
-
-        if (callback != null) {
-            callback.run();
-        }
+    private static void requireMainThread() {
+        if (!Bukkit.isPrimaryThread()) throw new IllegalStateException("读条操作必须在服务器主线程执行");
     }
 }

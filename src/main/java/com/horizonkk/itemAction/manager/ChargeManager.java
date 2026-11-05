@@ -213,7 +213,7 @@ public class ChargeManager implements ChargeAPI {
      * 清理所有读条数据（用于插件关闭时）
      */
     public void cleanup() {
-        for (UUID playerId : chargeTasks.keySet()) {
+        for (UUID playerId : java.util.List.copyOf(chargeTasks.keySet())) {
             cancelCharging(playerId);
         }
     }

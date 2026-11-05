@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.inventory.ItemStack;
 
 import java.lang.reflect.Method;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 /**
@@ -126,13 +127,12 @@ public class NbtUtils {
 
                 if (isLast) {
                     Method getString = currentTag.getClass().getMethod("getString", String.class);
-                    String value = (String) getString.invoke(currentTag, part);
-                    if (value != null && value.isEmpty()) return null;
-                    return value;
+                    Object value = unwrapOptional(getString.invoke(currentTag, part));
+                    return value instanceof String string && !string.isEmpty() ? string : null;
                 } else {
                     Method getCompound = findCompoundGetter(currentTag.getClass());
                     if (getCompound == null) return null;
-                    currentTag = getCompound.invoke(currentTag, part);
+                    currentTag = unwrapOptional(getCompound.invoke(currentTag, part));
                     if (currentTag == null) return null;
                 }
             }
@@ -141,6 +141,11 @@ public class NbtUtils {
         }
 
         return null;
+    }
+
+    private static Object unwrapOptional(Object value) {
+        // 1.21.5+ 的 NBT getter 返回 Optional；旧版本直接返回标签或字符串。
+        return value instanceof Optional<?> optional ? optional.orElse(null) : value;
     }
 
     private static Method findMethod(Class<?> clazz, String methodName) {

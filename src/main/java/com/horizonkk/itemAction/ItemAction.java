@@ -40,7 +40,9 @@ public final class ItemAction extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        if (spellChargeManager != null) spellChargeManager.cleanup();
+        if (chargeManager != null) chargeManager.cleanup();
+        if (placeholderAPI != null) placeholderAPI.unregister();
     }
 
     public void registerEvents(){
